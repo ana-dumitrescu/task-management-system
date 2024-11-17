@@ -2,11 +2,12 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { LogoutButton } from "@/components/auth/logout-button"
 import Link from "next/link"
+import type { ReactNode } from 'react'
 
 export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   const session = await auth()
 
