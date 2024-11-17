@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 
 export default async function DashboardPage() {
-  const session = await auth()
+  // const session = await auth()
 
   return (
     <div className="rounded-lg bg-white p-8 shadow-sm">
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
         <h3 className="text-xl font-semibold mb-4">Recent Tasks</h3>
         <div className="rounded-lg border">
           <div className="px-6 py-4 text-center text-gray-500">
-            No tasks yet. Click "Add Task" to get started.
+            No tasks yet. Click &quot;Tasks&quot; to get started.
           </div>
         </div>
       </div>

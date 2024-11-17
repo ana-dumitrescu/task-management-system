@@ -1,22 +1,12 @@
-// src/lib/auth.ts
 import NextAuth from "next-auth"
+import { AuthOptions, getServerSession } from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
-import type { UserType, Token } from "@/types/next-auth"
 
-export const {
-  handlers: { GET, POST },
-  auth,
-} = NextAuth({
-  adapter: PrismaAdapter(prisma) as any,
-  session: {
-    strategy: "jwt"
-  },
-  pages: {
-    signIn: "/login",
-  },
+export const authOptions: AuthOptions = {
+  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -24,7 +14,7 @@ export const {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials): Promise<any> {
+      async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
@@ -33,15 +23,15 @@ export const {
           where: {
             email: credentials.email
           }
-        }) as UserType | null
+        })
 
-        if (!user) {
+        if (!user || !user.password) {
           return null
         }
 
         const isPasswordValid = await bcrypt.compare(
-          credentials.password.toString(),
-          user.password.toString()
+          credentials.password,
+          user.password
         )
 
         if (!isPasswordValid) {
@@ -57,15 +47,21 @@ export const {
       }
     })
   ],
+  session: {
+    strategy: "jwt" as const
+  },
+  pages: {
+    signIn: '/login',
+  },
   callbacks: {
-    async session({ session, token }: { session: any; token: Token }) {
+    async session({ session, token }: { session: any; token: any }) {
       if (session.user) {
         session.user.id = token.id
         session.user.role = token.role
       }
       return session
     },
-    async jwt({ token, user }: { token: Token; user: any }) {
+    async jwt({ token, user }: { token: any; user: any }) {
       if (user) {
         token.id = user.id
         token.role = user.role
@@ -73,4 +69,9 @@ export const {
       return token
     }
   }
-})
+}
+
+export const auth = () => getServerSession(authOptions)
+
+const handler = NextAuth(authOptions)
+export { handler as GET, handler as POST }
