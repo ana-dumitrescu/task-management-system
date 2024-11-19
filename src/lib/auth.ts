@@ -1,3 +1,4 @@
+// src/lib/auth.ts
 import NextAuth from "next-auth"
 import { AuthOptions, getServerSession } from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
@@ -15,63 +16,80 @@ export const authOptions: AuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            throw new Error("Missing credentials");
           }
-        })
 
-        if (!user || !user.password) {
-          return null
-        }
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email.toLowerCase().trim()
+            }
+          });
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
+          if (!user || !user.password) {
+            throw new Error("Invalid credentials");
+          }
 
-        if (!isPasswordValid) {
-          return null
-        }
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
+          if (!isPasswordValid) {
+            throw new Error("Invalid credentials");
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("Auth error:", error);
+          return null;
         }
       }
     })
   ],
   session: {
-    strategy: "jwt" as const
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours
   },
   pages: {
     signIn: '/login',
+    error: '/login', // Add this to handle errors
   },
   callbacks: {
-    async session({ session, token }: { session: any; token: any }) {
-      if (session.user) {
-        session.user.id = token.id
-        session.user.role = token.role
-      }
-      return session
-    },
-    async jwt({ token, user }: { token: any; user: any }) {
+    async jwt({ token, user, account }) {
       if (user) {
-        token.id = user.id
-        token.role = user.role
+        token.id = user.id;
+        token.role = user.role;
       }
-      return token
-    }
-  }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+      }
+      return session;
+    },
+  },
+  debug: process.env.NODE_ENV === 'development',
+  secret: process.env.NEXTAUTH_SECRET,
 }
 
-export const auth = () => getServerSession(authOptions)
+export const auth = () => {
+  try {
+    return getServerSession(authOptions);
+  } catch (error) {
+    console.error("Session error:", error);
+    return null;
+  }
+}
 
 const handler = NextAuth(authOptions)
 export { handler as GET, handler as POST }
